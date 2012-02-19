@@ -6,7 +6,8 @@ output can be more easily used..
 
 For the [`wmctrl`](http://tomas.styblo.name/wmctrl/), `iwlist scanning`, 
 [`pinot-search`](http://pinot.berlios.de/documentation.html), `ps` and `top` 
-command.
+command. I use the `wmctrl` to control my the windows.(Maybe later that
+code will end up here too)
 
 ## Dependencies
 
@@ -31,23 +32,25 @@ Uses the `ps` commands, the defun `ps` takes as argument what aspects you want
  lists filled with the values as requested, but there is also a `:hook` 
 keyword so you can take the information immediately.
 
-Also a `do-ps` where you just provide (non-keyword)variables it will fill the
-variables with the associated keywords.
-
 Using cffi on the C interface would probably be superior.
 
-Warning todo: some of the available options `:args` actually return lists.
+**Warning:** some of the available options, like `:args` produce list, 
+because how it works internally, tokenizing on whitespace instead of how the 
+table works.
+
+Also a `ps-do` where you just provide (non-keyword)variables it will fill the
+variables with the associated keywords. For the reason as in the warnig
+`ps-do` has `&rest` for the last element, for this reason all things to query
+for in the list `+ps-produce-list+` *must* be last.
 
 ### cl-wmctrl
 Uses [`wmctrl`](http://tomas.styblo.name/wmctrl/) The function `wm-list` works
  the same as the `ps` one, you provide a list of stuff you want, 
-`+wmctrl-allowed+` listing them, and there is also a `do-wm-list` that works 
+`+wmctrl-allowed+` listing them, and there is also a `wm-list-do` that works 
 the same.
 
 `:command` is also allowed, `wmctrl` doesn't(afaik) do this, but `cl-wmctrl`
 uses a `ps` command to get it anyway. (because it is useful)
-
-Warning todo: potentially the same problem as cl-ps-command.
 
 ### iw-scan, iw-scan-continuous
 Uses `(sudo) iwlist wlan0 scanning` and looks at its output.
@@ -61,7 +64,7 @@ provides a `:cell-hook` that runs of each cell, and a `:hook` running on each
 
 `iw-cur` returns the current connection.
 
-It is the reason why the read-tab-listing package exists.
+It is the reason why the read-tab-listing package exists in j-basic.
 
 ### cl-pinot-parse
 Runs a `pinot-search` command. Turns the names of different entries into 
@@ -98,13 +101,14 @@ facility, otherwise, trivial shell.
 
 ## TODO
 
-* Fix the issues with getting entire lists for some of the keywords on 
-  cl-ps and cl-wmctrl.
-
-* More proper use of streams, see if external-program is good.
-
 * The implementation of regex-sequence underneath could probably be more 
   efficient.
+
+* Would be better if cl-ps-command figured out the table instead of
+  tokenizing, but feel hardly worth the effort for me.
+
+* Use of streams, using external-program might be better, but probably hardly
+  worth it.
 
 ##Copyright
 Everything is under GPLv3, license included under `doc/`

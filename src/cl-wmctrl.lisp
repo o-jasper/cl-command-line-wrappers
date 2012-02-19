@@ -8,22 +8,23 @@
 ;;
 
 (defpackage :cl-wmctrl
-  (:use :common-lisp :j-commandline :j-string-utils)
-  (:export wm-list +wmctrl-allowed+ do-wm-list wm-line-handler
+  (:use :common-lisp :alexandria :j-commandline :j-string-utils)
+  (:export wm-list +wmctrl-allowed+ wm-list-do wm-line-handler
 	   wm-to-id wm-to-title command-of-pid)
   (:documentation "Thin layer around wmctrl command.
  (C-lib FFI might be better, but seems to work fine.)"))
 
 (in-package :cl-wmctrl)
 
-(defconstant +wmctrl-allowed+
+(defvar +wmctrl-allowed+
   '(:id :pid :desktop :x-offset :y-offset :width :height :machine :title
-    :command))
+    :command)
+  "Allowed information obtainable from wmctrl.")
 
 (defun command-of-pid (pid &key (remove-last #\Newline))
   "Get the command belonging to a pid.\
  (Actualy, perhaps better off in cl-top)"
-  (let ((result (command-str "ps -p " pid " -o comm=")))
+  (let ((result (command-str "ps -p " pid " -o cmd=")))
     (if (string= result "") ;Deal with all sorts of output of commands!
       result
       (let ((len-1 (- (length result) 1))) ;Bit ugly.
@@ -71,8 +72,8 @@
 		     (:machine  machine) 
 		     (:title    title)
 		     (:command  (command-of-pid (parse-integer pid)))
-		     (t         (error "Not allowed to get ~a, see 
-`+wmctrl-allowed+` for what is." wanted-name)))))
+		     (t         (error "Not allowed to get ~s, see 
+`+wmctrl-allowed+` for what is. ~s" wanted-name want)))))
 	    (mapcar #'get-wanted want)))))))
 
 (defun wm-list (want &key (hook #'list) (prepare :full) (utf t))
@@ -97,19 +98,30 @@ Note that with `utf` false, it will fail if there is no utf at the moment.."
        (:line
 	hook)))))
 
-(defmacro do-wm-list (want &body body)
+(defun to-local (symbol)
+  (intern (symbol-name symbol) *package*))
+(defun to-local-delist (val)
+  (if (listp val) (car val) (to-local val)))
+
+;;TODO code terribly similar to `do-ps` of course..
+(defmacro wm-list-do (want &body body)
   "Macro for `wm-list`, for avoiding having to write what variables you want.\
  This is instead deduced by looking at the variable names."
   ;(assert (case prepare ((:full :tok :tokenize) t)))
-  `(wm-list ',(mapcar (lambda (v) 
-			(if (listp v)
-			    (cadr v) (intern (symbol-name v) :keyword)))
+#|  (assert (not(find-if (rcurry #'find +wmctrl-produce-list+) 
+		       (butlast want))) nil
+	  "The keywords in `+wmctrl-produce-list+` may produce lists, and may\
+ only be at the end of the `want` argument.")|#
+  `(wm-list ',(mapcar (lambda (v)
+			(if (listp v) 
+			  (cadr v)
+			  (intern (symbol-name v) :keyword)))
 		      want)
-	    :hook (lambda ,(mapcar (lambda (v) (if (listp v) (car v) v)) want)
-		    ,@body)
-	    :prepare ,(case (car body) 
-			((:full :tok :tokenize :line) (car body))
-			(t :full))))
+       :hook (lambda ,(mapcar #'to-local-delist want)
+	       ,@body)
+       :prepare ,(case (car body) 
+		   ((:full :tok :tokenize :line) (car body))
+		   (t :full))))
 
 (defun wm-id-nr (id)
   "Turn integer id to string passable to command."

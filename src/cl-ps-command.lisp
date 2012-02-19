@@ -1,5 +1,5 @@
 ;;
-;;  Copyright (C) 30-01-2012 Jasper den Ouden.
+;;  Copyright (C) 19-02-2012 Jasper den Ouden.
 ;;
 ;;  This is free software: you can redistribute it and/or modify
 ;;  it under the terms of the GNU General Public License as published
@@ -8,8 +8,9 @@
 ;;
 
 (defpackage :cl-ps-command
-  (:use :common-lisp :j-commandline :j-string-utils)
-  (:export ps-command ps do-ps ps-line-handler +ps-allowed+)
+  (:use :common-lisp :alexandria :j-commandline :j-string-utils)
+  (:export ps-command ps do-ps ps-line-handler +ps-allowed+
+	   +ps-produce-list+)
   (:documentation "Pretty thin layer around the ps command.
  (C-lib FFI would be better)
 
@@ -38,6 +39,13 @@ Warning see `+ps-allowed+`"))
 WARNING: `:args` behaves a little nasty, it tokenizes it, but that is not\
  really desired.")
 
+(defconstant +ps-produce-list+ 
+  '(:cmd :command :args :lstart :label)
+  "Stuff that produces lists because of how it is tokenized. 
+It would be more hassle than it is worth to get round this. These can only go\
+ at the end in `do-ps`
+NOTE `(= (length +ps-allowed) 95)`, not sure if this is exhaustive!")
+
 (defun key-str (sym)
   "Turn key into string.(only for here)"
   (assert (find sym +ps-allowed+) nil
@@ -51,12 +59,8 @@ TODO only tokenizes atm. The way to do it: pass a list of indices where the\
   (declare (ignore want))
   (tokenize-str line))
 
-;TODO there is a fuckton of ways to select sublists..
 (defun ps-command (want)
-  (concat "ps -o"
-	  (reduce (lambda (a b)
-		    (concat a "," (key-str b)))
-		  (cdr want) :initial-value (key-str (car want)))))
+  (format nil "ps -o ~{~a~^,~}" (mapcar #'key-str want)))
 
 (defun ps (want &key (hook #'list)
 	   (prepare :full) (assert-in-list t))
@@ -65,9 +69,12 @@ TODO only tokenizes atm. The way to do it: pass a list of indices where the\
  for tokenizing and :full for tokenizing and converting strings into\
  numbers etc, otherwise, get 'raw' strings."
   (when assert-in-list
-    (dolist (w want) (assert (find w +ps-allowed+))))
+    (dolist (w want) 
+      (assert (keywordp w) nil "~s not a keyword." w)
+      (assert (find w +ps-allowed+) nil
+	      "~s is not a thing that can be querried." w)))
   (with-input-from-string (stream (command-str (ps-command want)))
-    (read-line stream)
+    (read-line stream nil)
     (line-by-line stream
        (case prepare
 	 (:full (lambda (line) (apply hook (ps-line-handler line want))))
@@ -77,16 +84,28 @@ TODO only tokenizes atm. The way to do it: pass a list of indices where the\
 	 (t     (error "~a is not a way to prepare a command-`ps` output\
  line." prepare))))))
 
+(defun to-local (symbol)
+  (intern (symbol-name symbol) *package*))
+(defun to-local-delist (val)
+  (if (listp val) (car val) (to-local val)))
+
+(defun to-key-delist (val)
+  (if (listp val) (cadr val) (intern (symbol-name val) :keyword)))
+
 (defmacro do-ps (want &body body)
   "Macro for `ps`, for avoiding having to write what variables you\
  want. This is instead deduced by looking at the variable names."
-  `(ps ',(mapcar (lambda (v)
-		   (if (listp v)
-		       (cadr v) (intern (symbol-name v) :keyword)))
-		 want)
-       :hook (lambda ,(mapcar (lambda (v) (if (listp v) (car v) v)) want)
+  (assert (not(find-if (rcurry #'find +ps-produce-list+) (butlast want))) nil
+	  "The keywords in `+ps-produce-list+` may produce lists, and may only
+ be at the end of the `want` argument.")
+  `(ps ',(mapcar #'to-key-delist want)
+       :hook (lambda (,@(mapcar #'to-local-delist (butlast want))
+		      ,@(let*((v (to-local-delist (car (last want)))))
+			  (if (find (to-key-delist (car(last want)))
+				    +ps-produce-list+)
+			    `(&rest ,v)
+			    (list v))))
 	       ,@body)
        :prepare ,(case (car body) 
 		   ((:full :tok :tokenize :line) (car body))
 		   (t :full))))
-  
