@@ -4,6 +4,10 @@
 These provide a bunch of functions of some commandline utilities, so their 
 output can be more easily used..
 
+For the [`wmctrl`](http://tomas.styblo.name/wmctrl/), `iwlist scanning`, 
+[`pinot-search`](http://pinot.berlios.de/documentation.html), `ps` and `top` 
+command.
+
 ## Dependencies
 
 * [Alexandria](http://common-lisp.net/project/alexandria/).
@@ -14,15 +18,12 @@ output can be more easily used..
 
 * If SBCL [trivial-shell](http://common-lisp.net/project/trivial-shell/)
  and [unix-options](https://github.com/astine/unix-options), if clisp it uses 
-the inbuild ways to access the shell.
+the inbuild ways to access the shell. In case of pinot-parse, 
+ [external-program](http://common-lisp.net/project/external-program/)
 
 * The program involved.
 
 ## Main functions and variables:
-
-### args-ncommand
-Basic functions providing access to commandline. If SBCL, depends on if clisp
- not.
 
 ### cl-ps-command
 Uses the `ps` commands, the defun `ps` takes as argument what aspects you want
@@ -33,12 +34,15 @@ keyword so you can take the information immediately.
 Also a `do-ps` where you just provide (non-keyword)variables it will fill the
 variables with the associated keywords.
 
-Warning todo: some of the things to get like `:args` actually return lists.
+Using cffi on the C interface would probably be superior.
+
+Warning todo: some of the available options `:args` actually return lists.
 
 ### cl-wmctrl
-Uses [`wmctrl`](http://tomas.styblo.name/wmctrl/) `wm-list` works the same as
- the `ps` one, you provide a list of stuff you want, `+wmctrl-allowed+` 
-listing them, and there is also a `do-wm-list` that works the same.
+Uses [`wmctrl`](http://tomas.styblo.name/wmctrl/) The function `wm-list` works
+ the same as the `ps` one, you provide a list of stuff you want, 
+`+wmctrl-allowed+` listing them, and there is also a `do-wm-list` that works 
+the same.
 
 `:command` is also allowed, `wmctrl` doesn't(afaik) do this, but `cl-wmctrl`
 uses a `ps` command to get it anyway. (because it is useful)
@@ -59,32 +63,48 @@ provides a `:cell-hook` that runs of each cell, and a `:hook` running on each
 
 It is the reason why the read-tab-listing package exists.
 
+### cl-pinot-parse
+Runs a `pinot-search` command. Turns the names of different entries into 
+keywords a list with keywords.
+
+`(:ran-query query time time-unit)` where `query` is the query string. 
+ `time-unit` is a symbol, but for instance microseconds is `:|ms|`, because if
+it were `:|Ms|` that would be different!(So symbol with lowercase.)
+
+`(:showing-of shown-cnt total-cnt)`, number pinot-parse tells us we got and 
+the number it says match the query.
+
+`(:not-identified ...stuff..)`(hopefully none of that), 
+
+and for the search results, `result-number ..plist..`
+each of the words pinot lists is plist-ified: `:location`, `:date`, `:size`, 
+`:score`, `:title`, `:type`, `:language`, `:extract`.
+
 ### cl-acpi-command, cl-acpi-classes
 Classes and commandline-acpi-user. Note that a CFFI based on the C-interface
-to acpi would be *superior*, for this reason i won't do any work on this one.
- Used the classes because you can then have`:documentation`, but it is 
-overkill.
+to acpi would be *superior*, even more superior if lisp could automatically 
+use C, like [Julia](http://julialang.org/).(But Julia is practically a lisp 
+from what i heard!) for this reason i won't do any
+ work on this one. Used the classes because you can then have`:documentation`,
+ but it is overkill.
 
 ### cl-top-command
 Handles the first few lines of `top` output(badly) and runs the lines through
  a hook one by one, defaultly making a list of plists.
 
+### args-n-command
+Basic functions providing access to commandline. If clisp it uses clisps 
+facility, otherwise, trivial shell.
+
 ## TODO
 
-* They don't respond well to non-ascii, pretty damningly, especially for if
- cl-wmctrl or cl-iw-scan see many cases.
-
-* The potentially bad behavior of some of the things wmctrl and ps can suck.
-
-* iw-scan is deviant from wmctrl and ps in behavior.
-
-* Some examples.
+* Fix the issues with getting entire lists for some of the keywords on 
+  cl-ps and cl-wmctrl.
 
 * More proper use of streams, see if external-program is good.
 
 * The implementation of regex-sequence underneath could probably be more 
   efficient.
-
 
 ##Copyright
 Everything is under GPLv3, license included under `doc/`

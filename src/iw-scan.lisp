@@ -1,5 +1,5 @@
 ;;
-;;  Copyright (C) 30-01-2012 Jasper den Ouden.
+;;  Copyright (C) 19-02-2012 Jasper den Ouden.
 ;;
 ;;  This is free software: you can redistribute it and/or modify
 ;;  it under the terms of the GNU General Public License as published
@@ -188,7 +188,7 @@ NOTE: `sudo iwlist wlan0 scanning` it will only give a subset of the actual\
   "Gives the raw output for the iwlist command. Defaultly uses `sudo`, see\
  documentation of package."
   (make-string-input-stream
-   (command-str (if sudo "sudo " "") "iwlist wlan0 scanning")))
+   (command-str (if sudo "sudo " "") "iwlist wlan0 scanning |cat -v")))
 
 (defun iw-scan 
     (&key (sudo t) (iw-stream (iw-stream :sudo sudo) iw-stream-manual-p)
@@ -218,7 +218,7 @@ TODO read the stream cell-by-cell?(NOTE: it is not yet an actual stream,\
   "If exists, gets the current connection.(Nill if none)
  TODO can multiple-exist? Would make sense, put a loop over them.."
   (destructuring-regex (interface "[:space:]+ESSID:[:space:]*" essid)
-      (command-str "iwgetid")
-    (let ((address (command-str "iwgetid -r -a")))
+      (command-str "iwgetid | cat -v")
+    (let ((address (command-str "iwgetid -r -a | cat -v")))
       (plist :keyword (press-interface interface) (de-quote essid) 
 	              (press-address address)))))

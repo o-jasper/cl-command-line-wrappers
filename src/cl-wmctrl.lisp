@@ -1,5 +1,5 @@
 ;;
-;;  Copyright (C) 30-01-2012 Jasper den Ouden.
+;;  Copyright (C) 19-02-2012 Jasper den Ouden.
 ;;
 ;;  This is free software: you can redistribute it and/or modify
 ;;  it under the terms of the GNU General Public License as published
@@ -47,32 +47,33 @@
   "Produces a function that can handle a single line"
   (let ((tok (tokenize-str line "" #'wh
 			   (+ 3 (if pids 1 0) (if geom 4 0)))))
-    (destructuring-bind (id desktop &rest more) tok
-      (destructuring-bind (pid x-offset y-offset width height
-			       machine title &rest overflow)
-	  (cond ;Arrange to get the variables right.
-	    ((and pids geom) more)
-	    (pids  	    (cons (car more)
-				  (append (make-list 4) (cdr more))))
-	    (geom 	    (cons nil more))
-	    (t               (append (make-list 5) more)))
-	(assert (null overflow) nil
-		"Overflow ~s~%From window list entry ~s" overflow tok)
-	(flet ((get-wanted (wanted-name)
-		 (case wanted-name ;;Hmm would be better if 
-		   (:id       (parse-integer id :start 2 :radix 16))
-		   (:pid      (parse-integer pid))
-		   (:desktop  (parse-integer desktop))
-		   (:x-offset (parse-integer x-offset))
-		   (:y-offset (parse-integer y-offset))
-		   (:width    (parse-integer width))
-		   (:height   (parse-integer height))
-		   (:machine  machine) 
-		   (:title    title)
-		   (:command  (command-of-pid (parse-integer pid)))
-		   (t         (error "Not allowed to get ~a, see 
+    (when (>= (length tok) 2)
+      (destructuring-bind (id desktop &rest more) tok
+	(destructuring-bind (pid x-offset y-offset width height
+			     machine title &rest overflow)
+	    (cond ;Arrange to get the variables right.
+	      ((and pids geom) more)
+	      (pids  	       (cons (car more)
+				    (append (make-list 4) (cdr more))))
+	      (geom 	       (cons nil more))
+	      (t               (append (make-list 5) more)))
+	  (assert (null overflow) nil
+		  "Overflow ~s~%From window list entry ~s" overflow tok)
+	  (flet ((get-wanted (wanted-name)
+		   (case wanted-name ;;Hmm would be better if 
+		     (:id       (parse-integer id :start 2 :radix 16))
+		     (:pid      (parse-integer pid))
+		     (:desktop  (parse-integer desktop))
+		     (:x-offset (parse-integer x-offset))
+		     (:y-offset (parse-integer y-offset))
+		     (:width    (parse-integer width))
+		     (:height   (parse-integer height))
+		     (:machine  machine) 
+		     (:title    title)
+		     (:command  (command-of-pid (parse-integer pid)))
+		     (t         (error "Not allowed to get ~a, see 
 `+wmctrl-allowed+` for what is." wanted-name)))))
-	  (mapcar #'get-wanted want))))))
+	    (mapcar #'get-wanted want)))))))
 
 (defun wm-list (want &key (hook #'list) (prepare :full) (utf t))
   "List the windows. Want is one of 
@@ -83,12 +84,13 @@ Note that with `utf` false, it will fail if there is no utf at the moment.."
   (let ((pids (need-pids want)) (geom (need-geom want)))
     (line-by-line 
      (command-str "wmctrl -l" (if utf " -u" "")
-		  (if pids " -p" "") (if geom " -G" ""))
-		  
+		  (if pids " -p" "") (if geom " -G" "") "|cat -v")
      (case prepare
        (:full
 	(lambda (line)
-	  (apply hook (wm-line-handler line want :pids pids :geom geom))))
+	  (alexandria:when-let (handled (wm-line-handler line want
+					      :pids pids :geom geom))
+	    (apply hook handled))))
        ((:tok :tokenize)
 	(lambda (line)
 	  (apply hook (tokenize-str line))))
@@ -116,9 +118,9 @@ Note that with `utf` false, it will fail if there is no utf at the moment.."
 
 (defun wm-to-id (id)
   "Go to a window identity number"
-  (command-str "wmctrl -i -a" (wm-id-nr id)))
+  (command-str "wmctrl -i -a " (wm-id-nr id)))
 
 (defun wm-to-title (title)
   "Go to window with that title. Note that it can be unreliable due to\
  identical/similar titles."
-  (command-str "wmctrl -a" title))
+  (command-str "wmctrl -a " title))

@@ -46,7 +46,8 @@ WARNING: `:args` behaves a little nasty, it tokenizes it, but that is not\
 
 (defun ps-line-handler (line want)
   "Converts the line string into tokens and numbers.
-TODO only tokenizes atm. Need to go through a lot of stuff.."
+TODO only tokenizes atm. The way to do it: pass a list of indices where the\
+ different entries start! It is given as first line!"
   (declare (ignore want))
   (tokenize-str line))
 
