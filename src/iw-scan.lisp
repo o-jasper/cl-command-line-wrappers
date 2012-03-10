@@ -1,5 +1,5 @@
 ;;
-;;  Copyright (C) 19-02-2012 Jasper den Ouden.
+;;  Copyright (C) 10-03-2012 Jasper den Ouden.
 ;;
 ;;  This is free software: you can redistribute it and/or modify
 ;;  it under the terms of the GNU General Public License as published
@@ -9,9 +9,8 @@
 
 (defpackage :iw-scan
   (:use :common-lisp :alexandria :j-general :j-seq-utils :j-string-utils
-	:j-parse-number
 	:j-commandline :read-tab-listing
-	:regex :regex-sequence)
+	:regex :destructuring-regex)
   (:export iw-stream iw-scan iw-press iw-press-cell press-address 
 	   unpress-address iw-cur)
   (:documentation "Uses `iwlist wlan0 scanning` command to scan wireless\
@@ -23,7 +22,7 @@ NOTE: `sudo iwlist wlan0 scanning` it will only give a subset of the actual\
  wlan0 scanning (TODO security implications?)"))
 
 (in-package :iw-scan)
-#| TODO provide the doc strings though..
+#| TODO want the doc strings, but not the classes.
  (defclass* iw-cell-short ()
   "Short information linked to a single measurment."
   (seen-time "Time at which seen(ms unix)" integer (get-universal-time))
@@ -43,11 +42,11 @@ NOTE: `sudo iwlist wlan0 scanning` it will only give a subset of the actual\
   "Turn string of bit rates into parts."
   (declare (type string string))
   (destructuring-regex
-      ("[:space:]*" ("[:digit:]*\\\.[:digit:]*|[:digit:]+" bit-rate)
+      ("[:space:]*" (:num bit-rate)
        "[:space:]*" ("(M|G|T)?(b|B)/(s|S)" bit-rate-unit) ";" rest) string
     (when bit-rate
       (assert bit-rate-unit)
-      (cons (list (parse-number bit-rate) (intern bit-rate-unit :keyword))
+      (cons (list bit-rate (intern bit-rate-unit :keyword))
 	    (when rest (cut-bit-rates rest))))))
 
 (defun de-quote (string)
@@ -78,36 +77,35 @@ NOTE: `sudo iwlist wlan0 scanning` it will only give a subset of the actual\
       (string-case (or which "fail")
 	("Channel"
 	 (destructuring-regex
-	     ("[:blank:]*" ("[:digit:]+" channel) "[:blank:]*") rest
-	   `((:channel ,(parse-integer channel)))))
+	     ("[:blank:]*" (:uint* channel) "[:blank:]*") rest
+	   `((:channel ,channel))))
 	("Frequency"
 	 (destructuring-regex 
-	     (("[:digit:]*\\\.[:digit:]*|[:digit:]+" frequency)
+	     ((:pos-num* frequency)
 	      "[:space:]*" ("[:alnum:]+" frequency-unit) "[:space:]*") rest
 	   (assert (and frequency rest))
-	   `((:frequency ,(parse-number frequency) ,frequency-unit))))
+	   `((:frequency ,frequency ,frequency-unit))))
 	("Quality" ;TODO doesn't seem to get signal level unit.
 	 (destructuring-regex 
-	     (("[:digit:]+" quality) "/" ("[:digit:]+" max-quality) 
+	     ((:uint* quality) "/" (:uint* max-quality)
 	      "[:space:]*Signal level[:space:]*" "=|:" "[:space:]*"
-	      ("-?([:digit:]*\\\.[:digit:]*|[:digit:]+)" signal-level)
+	      (:num signal-level)
 	      "[:space:]*" signal-level-unit "[:space:]*") rest
 	   (assert (and quality max-quality signal-level signal-level-unit)
 		   nil "failed on ~s" rest)
-	   `((:quality ,(parse-integer quality))
-	     (:signal-level ,(parse-number signal-level)
-			    ,signal-level-unit)
-	     (:max-quality ,(parse-integer max-quality)))))
+	   `((:quality ,quality)
+	     (:signal-level ,signal-level ,signal-level-unit)
+	     (:max-quality ,max-quality))))
 	("Extra"
 	 (when long
 	   (destructuring-regex ("[:space:]*" which ":|=[:space:]*" rest) rest
 	     (cond
 	       ((string= which "Last beacon")
 		(destructuring-regex
-		    (("[:digit:]*\\\.[:digit:]*|[:digit:]+" last-beacon) 
+		    ((:num last-beacon)
 		     last-beacon-unit "[:space:]" last-beacon-from) rest
 		  (assert (and last-beacon last-beacon-unit))
-		  `((:last-beacon ,(parse-number last-beacon)
+		  `((:last-beacon ,last-beacon
 				  ,(intern last-beacon-unit :keyword)
 				  ,(intern last-beacon-from :keyword)))))
 	       ((not long) nil)
@@ -154,11 +152,11 @@ NOTE: `sudo iwlist wlan0 scanning` it will only give a subset of the actual\
 
 (defun iw-press-cell (cell &key (long t))
   (destructuring-regex
-      ("Cell[:space:]*" ("[:digit:]+" cell-nr) "[:space:]*-?[:space:]*"
+      ("Cell[:space:]*" (:uint* cell-nr) "[:space:]*-?[:space:]*"
        "Address:[:space:]*" address) (car cell)
     (assert (and cell-nr address) nil
 	    "destructuring-regex failed; ~s" (car cell))
-    `((:cell-nr ,(parse-integer cell-nr))
+    `((:cell-nr ,cell-nr)
       (:address ,@(press-address address))
       (:press-time ,(get-universal-time))
       ,@(mapcan (lambda (ci) (iw-press-cell-info ci :long long))

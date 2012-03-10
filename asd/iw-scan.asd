@@ -1,6 +1,6 @@
 
 (defsystem :iw-scan
-  :depends-on (:regex-sequence :regex :read-tab-listing :j-commandline :j-parse-number :j-string-utils :j-seq-utils :j-general :alexandria)
+  :depends-on (:destructuring-regex :regex :read-tab-listing :j-commandline :j-string-utils :j-seq-utils :j-general :alexandria)
   :description "Uses `iwlist wlan0 scanning` command to scan wireless
  networks. The iw-scan-continuous package has facilities for continuous
  scanning with a hook, and some hooks to start from.

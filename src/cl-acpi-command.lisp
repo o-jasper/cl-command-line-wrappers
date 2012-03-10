@@ -1,5 +1,5 @@
 ;;
-;;  Copyright (C) 30-01-2012 Jasper den Ouden.
+;;  Copyright (C) 10-03-2012 Jasper den Ouden.
 ;;
 ;;  This is free software: you can redistribute it and/or modify
 ;;  it under the terms of the GNU General Public License as published
@@ -8,8 +8,8 @@
 ;;
 
 (defpackage :cl-acpi-command
-  (:use :common-lisp :alexandria :j-commandline :j-string-utils
-	:j-parse-number	:regex-sequence)
+  (:use :common-lisp :alexandria :j-commandline :j-string-utils 
+	:destructuring-regex)
   (:export acpi acpi-line)
   (:documentation "Wrapper around `acpi` program output.\
  (TODO: cffi libacpi, rename cl-top, cl-wmctrl, iw-scan?)"))
@@ -22,25 +22,25 @@
   "Handle a single acpi output line."
   (declare (type string line))
   (destructuring-regex ;TODO this confuses the compiler or something?
-      (name " " ("[:digit:]+" number)
+      (name " " (:int nr)
        ": "("Full|Charging|Discharging|design capacity|on-line|\
 ok|trip point|active|LCD|Processor|Fan" info) " |, " rest) line
     (let*((name   (intern (string-upcase name) :keyword))
-	  (nr     (parse-integer number))
 	  (result (make-instance 'acpi:acpi :kind name :nr nr))
 	  (info   (intern (string-upcase info) :keyword)))
       (case info
 	((:full :charging :discharging)
 	 (expect (eql name :battery))
-	 (destructuring-regex (("[:digit:]+" val) saying) rest
+	 (destructuring-regex ((:uint* val) saying) rest
 	   (declare (ignore saying)) ;TODO interpret it.
 	   (change-class result 'acpi:charge-state
-	     :state info :fraction (parse-integer val))))
+	     :state info :fraction val)))
 	(:|DESIGN CAPACITY|
 	  (expect (eql name :battery))
 	  (destructuring-regex 
-	      (("[:digit:]+" capacity) " mAh, last full capacity "
-	       ("[:digit:]+" last-full) " mAh = " ("[:digit:]+" p) "%") rest
+	      ((:uint* capacity) " mAh, last full capacity "
+	       (:uint* last-full) " mAh = " (:uint* p) "%") rest
+	    (declare  (ignore p))
 	    (change-class result 'acpi:charge-capacity
 	      :design-capacity capacity :last-full-capacity last-full)))
 	(:on-line
@@ -48,26 +48,25 @@ ok|trip point|active|LCD|Processor|Fan" info) " |, " rest) line
 	 (change-class result 'acpi:on-line))
 	((:ok :active)
 	 (expect (eql name :thermal))
-	 (destructuring-regex (("[:digit:]+.[:digit:]+" temp)
+	 (destructuring-regex ((:num temp)
 			       " +degrees +" ("C|F" unit)) rest
 	    (assert unit)
 	    (change-class result 'acpi:thermal-state
-	       :state info :temp (parse-number temp) 
+	       :state info :temp temp
 	       :temp-unit (intern unit :keyword))))
 	(:|TRIP POINT|
 	  (destructuring-regex
-	      (("[:digit:]+" nr)
+	      ((:uint* nr)
 	       " +switches to mode +" ("passive|active|critical" mode)
-	       " +at temperature +" ("[:digit:]+.[:digit:]+" threshhold)
+	       " +at temperature +" (:num threshhold)
 	       " +degrees +" ("C|F" unit)) rest
 	    (change-class result 'acpi:thermal-trip
-	      :nr (parse-integer nr) :to-mode (intern (rev-case mode) :keyword)
-	      :temp (parse-number threshhold) :temp-unit (intern unit :keyword))))
+	      :nr nr :to-mode (intern (rev-case mode) :keyword)
+	      :temp threshhold :temp-unit (intern unit :keyword))))
 	((:LCD :fan :processor)
-	 (destructuring-regex
-	     (("[:digit:]+" n) " +of +" ("[:digit:]+" m)) rest
+	 (destructuring-regex ((:int n) " +of +" (:int m)) rest
 	   (change-class result 'acpi:cooling :of info
-	     :cooling-cnt (parse-integer n) :total-cnt (parse-integer m))))
+	     :cooling-cnt n :total-cnt m)))
 	(t
 	 result)))))
 
