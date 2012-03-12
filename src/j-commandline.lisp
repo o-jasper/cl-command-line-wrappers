@@ -11,13 +11,13 @@
   (:use :common-lisp :j-string-utils
 	#-clisp :trivial-shell)
   (:export command command-str)
-  (:documentation "Provides way to basic get arguments and external commands\
- from clisp or unix-options/trivial-shell.
+  (:documentation "Provides basic way to run external commands
+ from using clisp or trivial-shell.
 
  (Specific control of the streams not included try external-program for\
  that."))
 
-(in-package :args-n-command)
+(in-package :j-commandline)
 
 (defun command-str (&rest input)
   "Run command string.

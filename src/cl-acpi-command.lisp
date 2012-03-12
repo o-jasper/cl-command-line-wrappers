@@ -22,11 +22,10 @@
   "Handle a single acpi output line."
   (declare (type string line))
   (destructuring-regex ;TODO this confuses the compiler or something?
-      (name " " (:int nr)
+      ((:keyword name) " " (:int nr)
        ": "("Full|Charging|Discharging|design capacity|on-line|\
 ok|trip point|active|LCD|Processor|Fan" info) " |, " rest) line
-    (let*((name   (intern (string-upcase name) :keyword))
-	  (result (make-instance 'acpi:acpi :kind name :nr nr))
+    (let*((result (make-instance 'acpi:acpi :kind name :nr nr))
 	  (info   (intern (string-upcase info) :keyword)))
       (case info
 	((:full :charging :discharging)
