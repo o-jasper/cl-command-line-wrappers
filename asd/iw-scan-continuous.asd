@@ -15,7 +15,7 @@ iw-store-interests: Uses the previous to store stuff you indicate.
 
 TODO: a library compresses slightly changing data with easy time/other based
  access, and another library that makes this useful for iw-scan."
-    :license "GPLv3"
   :serial t
+  :author "Jasper den Ouden"
   :components ((:module "../src"
                  :components ((:file "iw-scan-continuous")))))

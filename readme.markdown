@@ -42,6 +42,7 @@ Also a `ps-do` where you just provide (non-keyword)variables it will fill the
 variables with the associated keywords. For the reason as in the warnig
 `ps-do` has `&rest` for the last element, for this reason all things to query
 for in the list `+ps-produce-list+` *must* be last.
+(this is unfortunate, probably a CFFI interface would be better)
 
 ### cl-wmctrl
 Uses [`wmctrl`](http://tomas.styblo.name/wmctrl/) The function `wm-list` works
@@ -66,9 +67,12 @@ provides a `:cell-hook` that runs of each cell, and a `:hook` running on each
 
 It is the reason why the read-tab-listing package exists in j-basic.
 
-### cl-pinot-parse
-Runs a `pinot-search` command. Turns the names of different entries into 
-keywords a list with keywords.
+### cl-pinot-command
+Function of the same name runs a `pinot-search` command. Turns the names of
+different entries into keywords a list with keywords. Of course, pinot has to
+be set up. Defaultly, the function uses the special variable contents, 
+`*search-engine*` and `*search-db*`, defaulting to `:xapian` and
+`(from-homedir ".pinot/")`.
 
 `(:ran-query query time time-unit)` where `query` is the query string. 
  `time-unit` is a symbol, but for instance microseconds is `:|ms|`, because if
@@ -83,17 +87,18 @@ and for the search results, `result-number ..plist..`
 each of the words pinot lists is plist-ified: `:location`, `:date`, `:size`, 
 `:score`, `:title`, `:type`, `:language`, `:extract`.
 
-### cl-acpi-command, cl-acpi-classes
-Classes and commandline-acpi-user. Note that a CFFI based on the C-interface
-to acpi would be *superior*, even more superior if lisp could automatically 
-use C, like [Julia](http://julialang.org/).(But Julia is practically a lisp 
-from what i heard!) for this reason i won't do any
- work on this one. Used the classes because you can then have`:documentation`,
- but it is overkill.
+### cl-acpi-command
+Commandline-acpi-user. Note that a CFFI based on the C-interface
+to acpi would be superior. Earlier used the classes
+because you can then have`:documentation`, but it is overkill.
+
+It consists of an `acpi` command, all arguments are optional, defaultly it 
+uses `acpi --everything`, otherwise, see the docstring.
 
 ### cl-top-command
-Handles the first few lines of `top` output(badly) and runs the lines through
- a hook one by one, defaultly making a list of plists.
+Provides a function `top` that handles few lines of `top` output(badly) and
+runs the lines through a function. Defaultly the function is `top-line` which
+makes plists.(and `top` thus produces a list of plists)
 
 ### args-n-command
 Basic functions providing access to commandline. If clisp it uses clisps 
@@ -101,19 +106,16 @@ facility, otherwise, trivial shell.
 
 ## TODO
 
-* The implementation of regex-sequence underneath could probably be more 
-  efficient.
-
 * Would be better if cl-ps-command figured out the table instead of
   tokenizing, but feel hardly worth the effort for me.
 
 * Use of streams, using external-program might be better, but probably hardly
   worth it.
 
-##Copyright
+## Copyright
 Everything is under GPLv3, license included under `doc/`
 
-##Author
+## Author
 
 Jasper den Ouden
 

@@ -6,6 +6,6 @@
 
 Warning see `+ps-allowed+`"
   :serial t
-  :license "GPLv3"
+  :author "Jasper den Ouden"
   :components ((:module "../src"
                  :components ((:file "cl-ps-command")))))

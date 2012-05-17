@@ -1,5 +1,5 @@
 ;;
-;;  Copyright (C) 10-03-2012 Jasper den Ouden.
+;;  Copyright (C) 12-04-2012 Jasper den Ouden.
 ;;
 ;;  This is free software: you can redistribute it and/or modify
 ;;  it under the terms of the GNU General Public License as published
@@ -42,8 +42,8 @@ NOTE: `sudo iwlist wlan0 scanning` it will only give a subset of the actual\
   "Turn string of bit rates into parts."
   (declare (type string string))
   (destructuring-regex
-      ("[:space:]*" (:num bit-rate)
-       "[:space:]*" ("(M|G|T)?(b|B)/(s|S)" bit-rate-unit) ";" rest) string
+      ("[:space:]*" (bit-rate :num)
+       "[:space:]*" (bit-rate-unit "(M|G|T)?(b|B)/(s|S)") ";" rest) string
     (when bit-rate
       (assert bit-rate-unit)
       (cons (list bit-rate (intern bit-rate-unit :keyword))
@@ -77,19 +77,19 @@ NOTE: `sudo iwlist wlan0 scanning` it will only give a subset of the actual\
       (string-case (or which "fail")
 	("Channel"
 	 (destructuring-regex
-	     ("[:blank:]*" (:uint* channel) "[:blank:]*") rest
+	     ("[:blank:]*" (channel :uint*) "[:blank:]*") rest
 	   `((:channel ,channel))))
 	("Frequency"
 	 (destructuring-regex 
-	     ((:pos-num* frequency)
-	      "[:space:]*" ("[:alnum:]+" frequency-unit) "[:space:]*") rest
+	     ((frequency :pos-num*)
+	      "[:space:]*" (frequency-unit "[:alnum:]+") "[:space:]*") rest
 	   (assert (and frequency rest))
 	   `((:frequency ,frequency ,frequency-unit))))
 	("Quality" ;TODO doesn't seem to get signal level unit.
 	 (destructuring-regex 
-	     ((:uint* quality) "/" (:uint* max-quality)
+	     ((quality :uint*) "/" (max-quality :uint*)
 	      "[:space:]*Signal level[:space:]*" "=|:" "[:space:]*"
-	      (:num signal-level)
+	      (signal-level :num)
 	      "[:space:]*" signal-level-unit "[:space:]*") rest
 	   (assert (and quality max-quality signal-level signal-level-unit)
 		   nil "failed on ~s" rest)
@@ -102,7 +102,7 @@ NOTE: `sudo iwlist wlan0 scanning` it will only give a subset of the actual\
 	     (cond
 	       ((string= which "Last beacon")
 		(destructuring-regex
-		    ((:num last-beacon)
+		    ((last-beacon :num)
 		     last-beacon-unit "[:space:]" last-beacon-from) rest
 		  (assert (and last-beacon last-beacon-unit))
 		  `((:last-beacon ,last-beacon
@@ -130,7 +130,7 @@ NOTE: `sudo iwlist wlan0 scanning` it will only give a subset of the actual\
 (defun press-address (adress)
   "Turns an addres of hexidecimal number separated with : into a list of
  integers."
-  (destructuring-regex ((".." val) (":" between) rest) adress
+  (destructuring-regex ((val "..") (between ":") rest) adress
     (when between
       (cons (parse-integer val :radix 16) (press-address rest)))))
 
@@ -152,7 +152,7 @@ NOTE: `sudo iwlist wlan0 scanning` it will only give a subset of the actual\
 
 (defun iw-press-cell (cell &key (long t))
   (destructuring-regex
-      ("Cell[:space:]*" (:uint* cell-nr) "[:space:]*-?[:space:]*"
+      ("Cell[:space:]*" (cell-nr :uint*) "[:space:]*-?[:space:]*"
        "Address:[:space:]*" address) (car cell)
     (assert (and cell-nr address) nil
 	    "destructuring-regex failed; ~s" (car cell))
@@ -164,22 +164,23 @@ NOTE: `sudo iwlist wlan0 scanning` it will only give a subset of the actual\
 
 (defun iw-press-top (top)
   (or (when (stringp top)
-	(destructuring-regex 
-	    (interface ("[:space:]*Interface doesn't support scanning." 
-			found)) top
-	  (when found (cons :interface-doesnt-support-scanning interface))))
+	(regex-case top
+	  ((interface "[:space:]*Interface doesn't support scanning.")
+	   (cons :interface-doesnt-support-scanning interface))
+	  (t
+	   nil)))
       top))
 
 (defun iw-press (result cell-hook)
   "Coerce what we understand in the scan result in a nicer form."
   (or (when (listp result) 
-	(destructuring-regex
-	    (interface ("[:space:]*Scan completed[:space:]*:?[:space:]*" 
-			found)) (car result)
-	  (when found 
-	    (let ((interface (press-interface interface)))
-	    (cons interface  ;Continue with cell.
-		  (mapcar (rcurry cell-hook interface) (cdr result)))))))
+	(regex-case (car result)
+	  ((interface "[:space:]*Scan completed[:space:]*:?[:space:]*")
+	   (let ((interface (press-interface interface)))
+	     (cons interface  ;Continue with cell.
+		   (mapcar (rcurry cell-hook interface) (cdr result)))))
+	  (t
+	   nil)))
       result))
 
 (defun iw-stream (&key (sudo t))

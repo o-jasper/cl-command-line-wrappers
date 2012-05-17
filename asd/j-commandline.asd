@@ -9,4 +9,4 @@
   :serial t
   :license "GPLv3"
   :components ((:module "../src"
-                 :components ((:file "args-n-command")))))
+                 :components ((:file "j-commandline")))))

@@ -1,5 +1,5 @@
 ;;
-;;  Copyright (C) 10-03-2012 Jasper den Ouden.
+;;  Copyright (C) 12-04-2012 Jasper den Ouden.
 ;;
 ;;  This is free software: you can redistribute it and/or modify
 ;;  it under the terms of the GNU General Public License as published
@@ -16,60 +16,46 @@
 
 (in-package :cl-acpi-command)
 
-(defun expect (cond) (assert cond))
-
 (defun acpi-line (line)
   "Handle a single acpi output line."
   (declare (type string line))
   (destructuring-regex ;TODO this confuses the compiler or something?
-      ((:keyword name) " " (:int nr)
-       ": "("Full|Charging|Discharging|design capacity|on-line|\
-ok|trip point|active|LCD|Processor|Fan" info) " |, " rest) line
-    (let*((result (make-instance 'acpi:acpi :kind name :nr nr))
-	  (info   (intern (string-upcase info) :keyword)))
-      (case info
-	((:full :charging :discharging)
-	 (expect (eql name :battery))
-	 (destructuring-regex ((:uint* val) saying) rest
-	   (declare (ignore saying)) ;TODO interpret it.
-	   (change-class result 'acpi:charge-state
-	     :state info :fraction val)))
-	(:|DESIGN CAPACITY|
-	  (expect (eql name :battery))
-	  (destructuring-regex 
-	      ((:uint* capacity) " mAh, last full capacity "
-	       (:uint* last-full) " mAh = " (:uint* p) "%") rest
-	    (declare  (ignore p))
-	    (change-class result 'acpi:charge-capacity
-	      :design-capacity capacity :last-full-capacity last-full)))
-	(:on-line
-	 (expect (eql name :adapter))
-	 (change-class result 'acpi:on-line))
-	((:ok :active)
-	 (expect (eql name :thermal))
-	 (destructuring-regex ((:num temp)
-			       " +degrees +" ("C|F" unit)) rest
-	    (assert unit)
-	    (change-class result 'acpi:thermal-state
-	       :state info :temp temp
-	       :temp-unit (intern unit :keyword))))
-	(:|TRIP POINT|
-	  (destructuring-regex
-	      ((:uint* nr)
-	       " +switches to mode +" ("passive|active|critical" mode)
-	       " +at temperature +" (:num threshhold)
-	       " +degrees +" ("C|F" unit)) rest
-	    (change-class result 'acpi:thermal-trip
-	      :nr nr :to-mode (intern (rev-case mode) :keyword)
-	      :temp threshhold :temp-unit (intern unit :keyword))))
-	((:LCD :fan :processor)
-	 (destructuring-regex ((:int n) " +of +" (:int m)) rest
-	   (change-class result 'acpi:cooling :of info
-	     :cooling-cnt n :total-cnt m)))
-	(t
-	 result)))))
+      ((name :keyword) " " (nr :int)
+       ": " (info "Full|Charging|Discharging|design capacity|on-line|ok|trip point|active|LCD|Processor|Fan") " |, " rest) line
+    `(,name :nr ,nr
+      ,@(let*((info   (intern (string-upcase info) :keyword)))
+	  (case info
+	    ((:full :charging :discharging)
+	     (destructuring-regex ((val :uint*) saying) rest
+	       `(:state ,info :fraction ,val :saying ,saying)))
+	    (:|DESIGN CAPACITY|
+	      (destructuring-regex 
+		  ((capacity :uint*) "mAh, last full capacity"
+		   (last-full :uint*) "mAh = " (p :uint*) "%") rest
+		p ;Can't ignore yet. (a todo of destructuring-regex)
+		`(:design-capacity ,capacity :last-full-capacity ,last-full)))
+	    (:on-line
+	     '(:on-line t))
+	    ((:ok :active)
+	     (destructuring-regex ((temp :num)
+				   " +degrees +" (unit "C|F")) rest
+	       (assert unit)
+	       `(:state ,info :temp ,temp 
+			:temp-unit ,(intern unit :keyword))))
+	    (:|TRIP POINT|
+	      (destructuring-regex
+		  ((nr :uint*)
+		   " +switches to mode +" (mode "passive|active|critical")
+		   " +at temperature +" (threshhold :num)
+		   " +degrees +" (unit "C|F")) rest
+		`(:nr ,nr :to-mode ,(intern (rev-case mode) :keyword)
+		  :temp ,threshhold :temp-unit ,(intern unit :keyword))))
+	    ((:LCD :fan :processor)
+	     (destructuring-regex ((n :int) " +of +" (m :int)) rest
+	       `(:of ,info :cooling-cnt ,n :total-cnt ,m))))))))
 
-(defun acpi (&optional from/get (line-fun #'acpi-line))
+(defun acpi
+    (&optional (from/get :everything) (line-fun #'acpi-line))
   "Return the 'reworked' results from the acpi command.
 If the argument is a:
 stream/pathname:  read stream/filename as if acpi output.
@@ -84,7 +70,6 @@ keyword           Single command."
       (stream  (line-by-line from/get line-fun))
       (string  (with-input-from-string (stream from/get)
 		 (re stream)))
-      (null    (re :everything))
       (keyword (re (command-str "acpi --" (prep-arg from/get))))
       (list    (re (command-str
 		      "acpi" (reduce (curry #'concat "--")

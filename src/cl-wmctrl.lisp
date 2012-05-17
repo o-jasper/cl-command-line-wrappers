@@ -1,5 +1,5 @@
 ;;
-;;  Copyright (C) 19-02-2012 Jasper den Ouden.
+;;  Copyright (C) 12-04-2012 Jasper den Ouden.
 ;;
 ;;  This is free software: you can redistribute it and/or modify
 ;;  it under the terms of the GNU General Public License as published
@@ -16,7 +16,8 @@
 
 (in-package :cl-wmctrl)
 
-(defvar +wmctrl-allowed+
+;TODO should be constant (stuff seems to whine then though...)
+(defvar +wmctrl-allowed+ 
   '(:id :pid :desktop :x-offset :y-offset :width :height :machine :title
     :command)
   "Allowed information obtainable from wmctrl.")

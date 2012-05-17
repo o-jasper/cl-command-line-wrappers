@@ -9,6 +9,6 @@ NOTE: `sudo iwlist wlan0 scanning` it will only give a subset of the actual
  result! For more add to file /etc/sudoers: `<username> /usr/sbin/iwlist
  wlan0 scanning (TODO security implications?)"
   :serial t
-  :license "GPLv3"
+  :author "Jasper den Ouden"
   :components ((:module "../src"
                  :components ((:file "iw-scan")))))
